@@ -13,8 +13,19 @@
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:"Segoe UI","Noto Sans Thai",sans-serif;background:var(--bg);color:var(--text);}
-  #app{display:flex;height:100vh;}
-  #sidebar{width:360px;min-width:320px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+  #app{display:flex;height:100vh;position:relative;}
+  #sidebar{width:360px;min-width:320px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .2s ease,transform .25s ease;}
+  #app:not(.sidebar-open) #sidebar{width:0;min-width:0;border-right:none;}
+  #btn-open-sidebar{position:fixed;top:10px;left:10px;z-index:1001;width:40px;height:40px;border-radius:8px;background:#fff;border:1px solid var(--border);box-shadow:0 1px 6px rgba(0,0,0,.18);font-size:18px;display:flex;align-items:center;justify-content:center;padding:0;}
+  #app.sidebar-open #btn-open-sidebar{display:none;}
+  #btn-close-sidebar{width:30px;height:30px;padding:0;font-size:14px;}
+  #sidebar-backdrop{display:none;}
+  @media (max-width:768px){#sidebar{position:fixed;top:0;left:0;height:100%;z-index:1000;width:88vw;max-width:340px;min-width:0;transform:translateX(-100%);box-shadow:2px 0 14px rgba(0,0,0,.25);}
+                           #app.sidebar-open #sidebar{transform:translateX(0);}
+                           #app:not(.sidebar-open) #sidebar{width:88vw;max-width:340px;border-right:1px solid var(--border);}
+                           #app.sidebar-open #sidebar-backdrop{display:block;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:999;}
+                           #map{width:100%;}
+                          }
   #sidebar header{padding:14px 16px 10px;border-bottom:1px solid var(--border);}
   #sidebar header h1{font-size:16px;margin:0 0 4px;}
   #sidebar header p{font-size:12px;color:var(--muted);margin:0;}
@@ -61,10 +72,17 @@
 </head>
 <body>
 <div id="app">
+  <button id="btn-open-sidebar" title="แสดงเมนู">☰</button>
+  <div id="sidebar-backdrop"></div>
   <div id="sidebar">
     <header>
-      <h1>🍦 ชิงพื้นที่การขายจากวอลล์ — เนสท์เล่ ไอศกรีม</h1>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div>
+          <h1>🍦 ชิงพื้นที่การขายจากวอลล์ — เนสท์เล่ ไอศกรีม</h1>
       <p>เชียงใหม่ · ลำพูน · แม่ฮ่องสอน — คลิกหมุดบนแผนที่เพื่ออัปเดตสถานะ</p>
+        </div>
+    <button id="btn-close-sidebar" title="ซ่อนเมนู" style="flex-shrink:0;">✕</button>
+      </div>
     </header>
     <div class="tabs">
       <div class="tab active" data-tab="overview">ภาพรวม</div>
@@ -933,7 +951,22 @@ let markerLayer = L.layerGroup().addTo(map);
 let hullLayer = L.layerGroup().addTo(map);
 let districtLabelLayer = L.layerGroup().addTo(map);
 
-const legendCtl = L.control({position:'bottomright'});
+function isMobileView(){ return window.matchMedia('(max-width:768px)').matches; }
+  let sidebarOpen = !isMobileView();
+  function applySidebarState(){
+    document.getElementById('app').classList.toggle('sidebar-open', sidebarOpen);
+    setTimeout(()=>{ map.invalidateSize(); }, 260);
+  }
+  function openSidebar(){ sidebarOpen = true; applySidebarState(); }
+  function closeSidebar(){ sidebarOpen = false; applySidebarState(); }
+  function closeSidebarIfMobile(){ if(isMobileView()) closeSidebar(); }
+  document.getElementById('btn-open-sidebar').addEventListener('click', openSidebar);
+  document.getElementById('btn-close-sidebar').addEventListener('click', closeSidebar);
+  document.getElementById('sidebar-backdrop').addEventListener('click', closeSidebar);
+  window.addEventListener('resize', ()=> map.invalidateSize());
+  applySidebarState();
+  
+  const legendCtl = L.control({position:'bottomright'});
 legendCtl.onAdd = function(){
   const div = L.DomUtil.create('div');
   div.style.background = '#fff';
@@ -1152,6 +1185,7 @@ function renderDistrictSummary(){
     div.addEventListener('click', ()=>{
       const c = districtCenter(g.district, g.province);
       map.setView(c, 12);
+      closeSidebarIfMobile();
     });
     el.appendChild(div);
   });
@@ -1169,7 +1203,7 @@ function renderSchoolList(list){
     div.innerHTML = `<div class="name">${s.name}</div>
       <div class="meta">อ.${s.district} จ.${s.province} ${salesTxt}</div>
       <span class="status-chip" style="background:${COLORS[st]}">${LABELS[st]}</span>`;
-    div.addEventListener('click', ()=>{ map.setView([s.lat,s.lon], 15); });
+    div.addEventListener('click', ()=>{ map.setView([s.lat,s.lon], 15); closeSidebarIfMobile(); });
     el.appendChild(div);
   });
 }
